@@ -38,7 +38,7 @@ def display_all_data(folder_path):
     files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path,f))]
 
     x_fig, y_fig = get_closest_multiply(len(files))
-    fig, axes = plt.subplots(x_fig, y_fig, figsize=(30,30))
+    fig, axes = plt.subplots(x_fig, y_fig, figsize=(y_fig*3,x_fig*3))
     idx = 0
     for f in files:
         print(f)
@@ -49,7 +49,7 @@ def display_all_data(folder_path):
         axes.flat[idx].label_outer()
         axes.flat[idx].set_title(f)
         idx += 1
-    plt.savefig(f"{folder_path}dataset_plot.png")
+    plt.savefig(f"{folder_path}plot/dataset_plot.png")
 
 def get_closest_multiply(integer):
     a = int(sqrt(integer)) + 1
@@ -61,5 +61,5 @@ def get_closest_multiply(integer):
 
 if __name__ == "__main__":
     data = get_dataset("./dataset/benchmark_artificial/2d-20c-no0.arff")
-    #plot_dataset(data)
+    plot_dataset(data)
     display_all_data("./dataset/benchmark_artificial/")
