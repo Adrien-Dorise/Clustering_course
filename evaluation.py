@@ -1,27 +1,6 @@
-# Silhouette score, indice de Davies Bouldin, indice de Calinski-Harabasz (variance ratio criterion), indice de Dunn
-
 import numpy as np
 import sklearn.metrics as metrics
-from enum import Enum
-import math
-
-
-def euclidean(sample1, sample2):
-    """Caculate the euclidean distance between two data point.
-    The formula is:
-        dist(X,Y) = \sqrt{\sum_{i=1}^{n}{ ( x_i - y_i ) ^ 2}}
-
-    Args:
-        sample1 (list of float): Features assigned to the first sample
-        sample2 (list of float): Features assigned to the second sample
-
-    Returns:
-        distance (float): Euclidean distance between the two samples
-    """
-    sum = 0
-    for idx in range(len(sample1)):
-        sum += (sample1[idx] - sample2[idx])**2
-    return math.sqrt(sum)
+import distance
 
 
 def find_nearest_cluster(dataset, labels, sample_label, sample):
@@ -48,7 +27,7 @@ def find_nearest_cluster(dataset, labels, sample_label, sample):
         else:
             dist = 0
             for s in labelled_samples[idx]:
-                dist += euclidean(s, sample)
+                dist += distance.euclidean(s, sample)
             distances.append(dist/len(labelled_samples[idx]))
     
     min_dist = np.min([dist for dist in distances if dist > 0])
@@ -131,14 +110,14 @@ def silhouette_score(dataset, labels):
         idx = 0
         for sample in [s for s,l in zip(dataset,labels) if l==sample_label]:
             if(sample is not current_sample):
-                intracluster_score += euclidean(current_sample, sample)
+                intracluster_score += distance.euclidean(current_sample, sample)
             idx += 1
         intracluster_score /= (idx-1)
         
         # nearest_score = (1 / |Cj|) * sum( dist(i,j) ) with Cj nearest cluster from i
         idx = 0
         for sample in [s for s,l in zip(dataset,labels) if l==nearestcluster]:
-            nearestcluster_score += euclidean(current_sample, sample)
+            nearestcluster_score += distance.euclidean(current_sample, sample)
             idx += 1
         nearestcluster_score /= idx
         
@@ -148,14 +127,23 @@ def silhouette_score(dataset, labels):
     return np.mean(sample_score)
 
 def BCSS(dataset, labels):
-    """_summary_
+    """Compute the Between Cluster Sum of Squares (BCSS) for a clustered dataset.
+    It can be described as the separation score between all clusters in a dataset.
+    It is the weighted sum of squared distances between each cluster centroid, with the overall data centroid.
+    It ranges from [0, +inf[, with a higher score indicating that the clusters are well separated from each other.
+
+    It is defined as follow:
+         BCSS = \sum_{i=1}^{k} n_i ||c_i - c||^2
+
+         with n_i the number of  points in the cluster C_i, 
+            c_i the centroid of C_i and c the centroid of all samples in the dataset.
 
     Args:
         dataset (list of [float]): List containing all the samples. A sample is a list of features 
         labels (list of int): Label associated with each sample in the dataset
 
     Returns:
-        _type_: _description_
+        BCSS score (float): BCSS score of the clustered dataset.
     """
     _, labelled_samples = get_labelled_data(dataset, labels)
     data_centroid = get_centroid(dataset)
@@ -164,11 +152,19 @@ def BCSS(dataset, labels):
     for cluster in labelled_samples:
         sample_count = len(cluster)
         cluster_centroid = get_centroid(cluster)
-        cluster_score.append(sample_count * (euclidean(data_centroid, cluster_centroid)**2))
+        cluster_score.append(sample_count * (distance.euclidean(data_centroid, cluster_centroid)**2))
     return np.sum(cluster_score)
 
 def WCSS(dataset, labels):
-    """_summary_
+    """Compute the Within Cluster Sum of Squares (WCSS) for a clustered dataset.
+    It can be described as the cohesion score between all clusters in a dataset.
+    It is the sum of squared distance between the samples and their respective cluster centroids.
+    It ranges from [0, +inf[, with a smaller score indicating more compact and cohesive clusters.
+
+    it is defined as follow:
+        WCSS = \sum_{i=1}^{k} \sum_{x \in C_i} ||x - c_i||^2
+
+         with c_i the centroid of C_i
 
     Args:
         dataset (list of [float]): List containing all the samples. A sample is a list of features 
@@ -184,57 +180,86 @@ def WCSS(dataset, labels):
         score = 0
         cluster_centroid = get_centroid(cluster)
         for sample in cluster:
-            score += euclidean(cluster_centroid, sample)**2
+            score += distance.euclidean(cluster_centroid, sample)**2
         cluster_score.append(score)
     
     return np.sum(cluster_score)
 
 def calinski_harabasz_score(dataset, labels):
-    """_summary_
+    """Compute the Calinski-Harabasz index for a clustered dataset.
+    It is also known as the Variance Ratio Criterion (VRC).
+    This score measures how similar a sample is to its own cluster (cohesion), compared to other clusters (separation).
+    It does so by calculating the weighted 0ratio between the separation and the cohesion of each samples in the dataset.
+    It ranges from [0, +inf[, with a higher Calinski-Harabasz index indicating that the clusters are dense and well separated.
 
+    It is defined as follow:
+        First calculate the weighted separation and cohesion scores. 
+        It corresponds the Between Cluster Sum of Squares BCSS (separation) and Withing Cluster Sum of Squares WCSS (cohesion).
+
+        The weighted separation score corresponds to the BCSS score normalised by its degrees of freedom:
+            separation = \frac{BCSS}{k-1} 
+        
+        The weighted cohesion score corresponds to the WCSS score normalised by its degrees of freedom:
+            cohesion = \frac{WCSS}{n-k}
+            
+        Finally, the Calinski-Harabasz score is defined as:
+            CH = \frac{separation}{cohesion}
+    
     Args:
         dataset (list of [float]): List containing all the samples. A sample is a list of features 
         labels (list of int): Label associated with each sample in the dataset
 
     Returns:
-        _type_: _description_
+        Calinski-Harabasz (int): Calinski-Harabasz score of the clustered dataset.
     """
     sample_count = len(dataset)
     cluster_count = len(np.unique(labels))
     BCSS_score = BCSS(dataset,labels)
     WCSS_score = WCSS(dataset,labels)
 
-    a = BCSS_score/(cluster_count - 1)
-    b = WCSS_score/(sample_count - cluster_count)
+    separation = BCSS_score/(cluster_count - 1)
+    cohesion = WCSS_score/(sample_count - cluster_count)
 
-    return a / b
+    return separation / cohesion
 
-def get_cluster_diameter(cluster):
-    """_summary_
+def get_cluster_avg_distance(cluster):
+    """Compute the average distance between all samples in a cluster and its centroid.
+    It is defined as:
+        d_i = \frac{1}{N} \sum_{j=1}^{N} dist(c_i, x^i_j)
 
     Args:
-        cluster (_type_): _description_
+        cluster (list of [float]): All samples contained in the cluster.
 
     Returns:
-        _type_: _description_
+        distance (float): Average distance inside the cluster.
     """
-    diameter = 0
+    distance = 0
     centroid = get_centroid(cluster)
     for sample in cluster:
-        diameter += euclidean(sample, centroid)
-    diameter /= len(cluster)  
+        distance += distance.euclidean(sample, centroid)
+    distance /= len(cluster)  
     
-    return diameter
+    return distance
 
 def cluster_similarity(dataset, labels):
-    """_summary_
+    """Compute the similarity score between each cluster of the dataset.
+    Each cluster is assigned a similarity score with all the other clusters.
+    Here, the similarity score between two clusters is defined as a trade of 
+    between the average distance in each cluster and the distance between the two clusters.
+    It ranges from [0, +inf[, with a lower score indicating a better seperation and tightness of the clusters.
+
+    It is defined as:
+        S_{ij} = \frac{d_i + d_j}{dist(c_i, c_j)}
 
     Args:
         dataset (list of [float]): List containing all the samples. A sample is a list of features 
         labels (list of int): Label associated with each sample in the dataset
 
     Returns:
-        _type_: _description_
+        similarities (list of [float]): Return the similarities between each cluster.
+                                        The list represents each cluster.
+                                        Then each list represent the similarity scores for this cluster in regards
+                                        to all the other clusters.
     """
     _, labelled_samples = get_labelled_data(dataset, labels)
 
@@ -243,35 +268,43 @@ def cluster_similarity(dataset, labels):
         current_cluster = labelled_samples[idx]
         current_centroid = get_centroid(current_cluster)
 
-        # Calculate cluster diameter -> The average distance between each samples in the cluster with its centroid
-        intra_cluster_diameter = get_cluster_diameter(current_cluster)
+        # Calculate cluster average distance -> The average distance between each samples in the cluster with its centroid
+        intra_cluster_avg_distance = get_cluster_avg_distance(current_cluster)
         
         other_clusters = [clust for i,clust in enumerate(labelled_samples) if i!=idx]
         cluster_similarity = []
         for clust in other_clusters:
             # Calculate distance between the the two clusters
             other_cluster_centroid = get_centroid(clust) 
-            centroids_distance = euclidean(current_centroid, other_cluster_centroid) 
+            centroids_distance = distance.euclidean(current_centroid, other_cluster_centroid) 
             
-            # Calculate the second cluster diameter
-            other_cluster_diameter = get_cluster_diameter(clust)
+            # Calculate the second cluster average distance
+            other_cluster_avg_distance = get_cluster_avg_distance(clust)
 
             # Calculate the similarity score between two clusters
-            score = (intra_cluster_diameter + other_cluster_diameter) / centroids_distance
+            score = (intra_cluster_avg_distance + other_cluster_avg_distance) / centroids_distance
             cluster_similarity.append(score)
         similarities.append(cluster_similarity)
 
     return similarities
 
 def davies_bouldin_index(dataset, labels):
-    """_summary_
+    """Compute the Davies-Bouldin index for the clustered dataset.
+    This score measures the seperation between the difference clusters.
+    It is done by averaging the maximimum of the similarity score between each clusters. 
+    As a high similarity score indicates less well seperated clusters, by taking the maximum,
+    we evaluate the worst case possible in terms of cluster seperation.
+    It ranges between [0, +inf[, with a lower score indicating a better seperation between clusters.
+
+    It is defined as:
+        DB = \frac{1}{K} \sum_{i=1}^{K} \max_{j \neq i}(S_{ij})
 
     Args:
         dataset (list of [float]): List containing all the samples. A sample is a list of features 
         labels (list of int): Label associated with each sample in the dataset
 
     Returns:
-        _type_: _description_
+        DB score (float): Davies-Bouldin score for the clustered dataset.
     """
     similarities = cluster_similarity(dataset, labels)
     cluster_count = len(np.unique(labels))
@@ -284,7 +317,7 @@ if __name__ == "__main__":
     import dataset
     data_path = "./dataset/benchmark_artificial/smile1.arff"
     data = dataset.get_dataset(data_path)
-    method = clust.CLUSTERING_METHOD.KMEANS
+    method = clust.CLUSTERING_METHOD.DBSCAN
     model = clust. get_model(method)
     model.fit(data)
     labels = model.labels_
