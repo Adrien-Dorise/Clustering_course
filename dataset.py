@@ -25,7 +25,7 @@ def plot_2Ddataset(data, title="Clustering dataset"):
         data (list of [float, float]): Dataset to ploat
         title (str, optional): Figure title. Defaults to "Clustering dataset".
     """
-    if(len(data[0] < 2)):
+    if(len(data[0]) < 2):
         raise Warning(f"WARNING in plot_2Ddataset: Not enough features. feature count=({len(data[0])}) / required=(2)")
     
     f0 = [x[0] for x in data]
@@ -44,7 +44,7 @@ def plot_3Ddataset(data, title="Clustering dataset"):
         data (list of [float, float]): Dataset to ploat
         title (str, optional): Figure title. Defaults to "Clustering dataset".
     """
-    if(len(data[0] < 3)):
+    if(len(data[0]) < 3):
         raise Warning(f"WARNING in plot_3Ddataset: Not enough features. feature count=({len(data[0])}) / required=(3)")
     
     f0 = [x[0] for x in data]
@@ -58,6 +58,12 @@ def plot_3Ddataset(data, title="Clustering dataset"):
     plt.show()
 
 def plot_benchmark_recap(folder_path):
+    """2D plot all the dataset available in the folder in a single plot
+    The plot is saved in a "plot" folder inside the benchmark folder.
+    
+    Args:
+        folder_path (string): Path to the benchmark folder containng all .arff datasets.
+    """
     files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path,f))]
 
     x_fig, y_fig = get_closest_multiply(len(files))
@@ -85,4 +91,4 @@ def get_closest_multiply(integer):
 if __name__ == "__main__":
     data = get_dataset("./dataset/benchmark_artificial/2d-20c-no0.arff")
     plot_2Ddataset(data)
-    plot_benchmark_recap("./dataset/benchmark_artificial/")
+    #plot_benchmark_recap("./dataset/benchmark_artificial/")
