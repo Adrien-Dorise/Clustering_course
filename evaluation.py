@@ -1,6 +1,6 @@
 import numpy as np
 import sklearn.metrics as metrics
-import distance
+import distance as d
 
 
 def find_nearest_cluster(dataset, labels, sample_label, sample):
@@ -27,7 +27,7 @@ def find_nearest_cluster(dataset, labels, sample_label, sample):
         else:
             dist = 0
             for s in labelled_samples[idx]:
-                dist += distance.euclidean(s, sample)
+                dist += d.euclidean(s, sample)
             distances.append(dist/len(labelled_samples[idx]))
     
     min_dist = np.min([dist for dist in distances if dist > 0])
@@ -110,14 +110,14 @@ def silhouette_score(dataset, labels):
         idx = 0
         for sample in [s for s,l in zip(dataset,labels) if l==sample_label]:
             if(sample is not current_sample):
-                intracluster_score += distance.euclidean(current_sample, sample)
+                intracluster_score += d.euclidean(current_sample, sample)
             idx += 1
         intracluster_score /= (idx-1)
         
         # nearest_score = (1 / |Cj|) * sum( dist(i,j) ) with Cj nearest cluster from i
         idx = 0
         for sample in [s for s,l in zip(dataset,labels) if l==nearestcluster]:
-            nearestcluster_score += distance.euclidean(current_sample, sample)
+            nearestcluster_score += d.euclidean(current_sample, sample)
             idx += 1
         nearestcluster_score /= idx
         
@@ -152,7 +152,7 @@ def BCSS(dataset, labels):
     for cluster in labelled_samples:
         sample_count = len(cluster)
         cluster_centroid = get_centroid(cluster)
-        cluster_score.append(sample_count * (distance.euclidean(data_centroid, cluster_centroid)**2))
+        cluster_score.append(sample_count * (d.euclidean(data_centroid, cluster_centroid)**2))
     return np.sum(cluster_score)
 
 def WCSS(dataset, labels):
@@ -180,7 +180,7 @@ def WCSS(dataset, labels):
         score = 0
         cluster_centroid = get_centroid(cluster)
         for sample in cluster:
-            score += distance.euclidean(cluster_centroid, sample)**2
+            score += d.euclidean(cluster_centroid, sample)**2
         cluster_score.append(score)
     
     return np.sum(cluster_score)
@@ -236,7 +236,7 @@ def get_cluster_avg_distance(cluster):
     distance = 0
     centroid = get_centroid(cluster)
     for sample in cluster:
-        distance += distance.euclidean(sample, centroid)
+        distance += d.euclidean(sample, centroid)
     distance /= len(cluster)  
     
     return distance
@@ -276,7 +276,7 @@ def cluster_similarity(dataset, labels):
         for clust in other_clusters:
             # Calculate distance between the the two clusters
             other_cluster_centroid = get_centroid(clust) 
-            centroids_distance = distance.euclidean(current_centroid, other_cluster_centroid) 
+            centroids_distance = d.euclidean(current_centroid, other_cluster_centroid) 
             
             # Calculate the second cluster average distance
             other_cluster_avg_distance = get_cluster_avg_distance(clust)
